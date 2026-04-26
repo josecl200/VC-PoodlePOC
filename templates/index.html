@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POODLE CVE-2014-3566 — LDAPS Attack Demo</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+    <div class="header-title">
+        <h1>POODLE <span class="cve">CVE-2014-3566</span></h1>
+        <p class="subtitle">SSL 3.0 CBC Padding Oracle — LDAPS Attack Demo</p>
+    </div>
+    <div class="header-badge">
+        <span class="badge">E-Corp Lab</span>
+    </div>
+</header>
+
+<!-- Phase 1: Real Server Verification -->
+<section class="phase" id="phase-verify">
+    <div class="phase-header">
+        <span class="phase-num">1</span>
+        <h2>Server Verification <span class="phase-tag tag-real">[REAL]</span></h2>
+        <p class="phase-desc">Connect to the actual LDAPS server and verify SSL 3.0 + CBC cipher</p>
+    </div>
+    <div class="phase-body">
+        <div class="config-row">
+            <div class="input-group">
+                <label for="host">Target Host</label>
+                <input type="text" id="host" value="192.168.56.50">
+            </div>
+            <div class="input-group input-small">
+                <label for="port">Port</label>
+                <input type="number" id="port" value="636">
+            </div>
+            <button id="btn-verify" class="btn btn-primary">Test SSL 3.0</button>
+        </div>
+
+        <div class="verify-results" id="verify-results" style="display:none">
+            <div class="result-grid">
+                <div class="result-item">
+                    <span class="rl">Status</span>
+                    <span class="rv" id="ssl-status">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="rl">Protocol</span>
+                    <span class="rv" id="ssl-version">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="rl">Cipher</span>
+                    <span class="rv" id="ssl-cipher">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="rl">CBC Mode</span>
+                    <span class="rv" id="ssl-cbc">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="rl">Subject</span>
+                    <span class="rv" id="ssl-subject">—</span>
+                </div>
+                <div class="result-item">
+                    <span class="rl">Issuer</span>
+                    <span class="rv" id="ssl-issuer">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Phase 2: Real LDAP Bind -->
+<section class="phase" id="phase-bind">
+    <div class="phase-header">
+        <span class="phase-num">2</span>
+        <h2>LDAP Bind Test <span class="phase-tag tag-real">[REAL]</span></h2>
+        <p class="phase-desc">Send a real LDAP bind request over SSL 3.0 to prove the server accepts credentials</p>
+    </div>
+    <div class="phase-body">
+        <div class="config-row">
+            <div class="input-group">
+                <label for="bind-dn">Bind DN</label>
+                <input type="text" id="bind-dn" value="labuser@lab.local">
+            </div>
+            <div class="input-group">
+                <label for="bind-password">Password</label>
+                <input type="password" id="bind-password" value="LabUser@123">
+            </div>
+            <button id="btn-bind" class="btn btn-primary" disabled>Test Bind</button>
+        </div>
+        <div class="bind-results" id="bind-results" style="display:none">
+            <div class="result-item">
+                <span class="rl">Bind Result</span>
+                <span class="rv" id="bind-status">—</span>
+            </div>
+            <div class="result-item">
+                <span class="rl">Request (hex)</span>
+                <span class="rv mono-small" id="bind-req-hex">—</span>
+            </div>
+            <div class="result-item">
+                <span class="rl">Response (hex)</span>
+                <span class="rv mono-small" id="bind-resp-hex">—</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Phase 3: POODLE Attack -->
+<section class="phase" id="phase-attack">
+    <div class="phase-header">
+        <span class="phase-num">3</span>
+        <h2>POODLE Attack <span class="phase-tag tag-sim">[CRYPTO SIM]</span></h2>
+        <p class="phase-desc">Recover the password byte-by-byte using the CBC padding oracle (1/256 per query)</p>
+    </div>
+    <div class="phase-body">
+        <div class="config-row">
+            <div class="input-group">
+                <label for="speed">Speed</label>
+                <select id="speed">
+                    <option value="slow">Slow (visible attempts)</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="fast">Fast</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex-direction:row;align-items:center;gap:8px;padding-top:1.4rem">
+                <input type="checkbox" id="chkRealOracle" style="width:16px;height:16px;accent-color:#ff4500;cursor:pointer">
+                <label for="chkRealOracle" style="font-size:0.8rem;color:#ff9900;cursor:pointer;white-space:nowrap">Real Oracle (live SSL 3.0)</label>
+            </div>
+            <button id="btn-attack" class="btn btn-danger" disabled>Launch POODLE Attack</button>
+            <button id="btn-stop" class="btn btn-warn" disabled>Stop</button>
+            <button id="btn-reset" class="btn btn-secondary">Reset</button>
+        </div>
+
+        <!-- Attack Progress -->
+        <div class="attack-panel" id="attack-panel" style="display:none">
+            <div class="attack-top">
+                <!-- Oracle counter -->
+                <div class="oracle-box">
+                    <div class="oracle-label">Oracle Queries</div>
+                    <div class="oracle-count" id="oracle-total">0</div>
+                    <div class="oracle-sub">
+                        <span>Current byte: <strong id="oracle-current">0</strong></span>
+                        <span class="oracle-hit" id="oracle-indicator">MISS</span>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div class="progress-box">
+                    <div class="progress-label">
+                        <span id="progress-text">Byte 0 / 0</span>
+                        <span id="elapsed-time">0.0s</span>
+                    </div>
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner" id="progress-bar" style="width:0%"></div>
+                    </div>
+                    <div class="progress-label">
+                        <span>Avg: <strong id="avg-attempts">0</strong> queries/byte</span>
+                        <span>P(hit) = 1/256</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CBC Block Diagram -->
+            <div class="block-section">
+                <h3>CBC Ciphertext Blocks</h3>
+                <div class="blocks-row" id="blocks-container"></div>
+                <div class="block-legend">
+                    <span><i class="dot dot-iv"></i>IV</span>
+                    <span><i class="dot dot-data"></i>Data</span>
+                    <span><i class="dot dot-target"></i>Target</span>
+                    <span><i class="dot dot-ok"></i>Recovered</span>
+                    <span><i class="dot dot-pad"></i>MAC+Pad</span>
+                </div>
+            </div>
+
+            <!-- Recovered Data -->
+            <div class="recovered-section">
+                <h3>Recovered Password</h3>
+                <div class="password-row" id="password-row"></div>
+                <div class="hex-row" id="hex-row"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Log -->
+<section class="phase phase-log">
+    <div class="log-bar">
+        <h2>Event Log</h2>
+        <button id="btn-clear-log" class="btn btn-small">Clear</button>
+    </div>
+    <div class="log-console" id="log-console">
+        <div class="log-entry log-info"><span class="ts">--:--:--</span> Ready</div>
+    </div>
+</section>
+
+<script src="/static/socket.io.min.js"></script>
+<script src="/static/main.js"></script>
+</body>
+</html>
